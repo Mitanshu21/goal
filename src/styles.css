@@ -238,3 +238,8 @@ code { font-size: 12.5px; background: var(--soft); border-radius: 5px; padding: 
 .hist-list .ln.done .tx { text-decoration: none; color: var(--fg); }
 .morerow .more:last-child { color: var(--fg); font-weight: 500; }
 .morerow .more:last-child::after { content: " →"; color: var(--dim); }
+
+/* Overdue: red title, red time, clock icon */
+.ln.late .tx { color: var(--bad); }
+.rt .od { vertical-align: -2px; margin-right: 4px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
