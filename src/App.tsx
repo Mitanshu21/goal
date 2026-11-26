@@ -1,0 +1,102 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useData, useLoaded } from './lib/store';
+import { useSync } from './lib/sync';
+import { activeGoals, goalInfo } from './lib/goals';
+import { fmtLong, isoToKey, todayKey } from './lib/dates';
+import Today from './components/Today';
+import Goals from './components/Goals';
+import Composer from './components/Composer';
+import SyncButton from './components/SyncButton';
+import TaskSheet from './components/TaskSheet';
+import GoalSheet from './components/GoalSheet';
+import NewGoalSheet from './components/NewGoalSheet';
+import YearSheet from './components/YearSheet';
+import SyncSheet from './components/SyncSheet';
+
+export type Tab = 'today' | 'goals';
+export type SheetState =
+  | { type: 'task'; id: string }
+  | { type: 'goal'; id: string }
+  | { type: 'new' }
+  | { type: 'year' }
+  | { type: 'sync' }
+  | null;
+export interface ToastMsg { text: string; undo?: () => void }
+export type ShowToast = (t: ToastMsg) => void;
+
+/** Today's date key, refreshed after midnight and when the app is reopened. */
+function useToday() {
+  const [t, setT] = useState(todayKey);
+  useEffect(() => {
+    const check = () => setT((prev) => (prev === todayKey() ? prev : todayKey()));
+    const id = window.setInterval(check, 30_000);
+    document.addEventListener('visibilitychange', check);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', check); };
+  }, []);
+  return t;
+}
+
+export default function App() {
+  const data = useData();
+  const loaded = useLoaded();
+  const sync = useSync();
+  const today = useToday();
+  const [tab, setTabState] = useState<Tab>(() => (localStorage.getItem('tab') === 'goals' ? 'goals' : 'today'));
+  const [sheet, setSheet] = useState<SheetState>(null);
+  const [toast, setToast] = useState<ToastMsg | null>(null);
+  const toastTimer = useRef(0);
+
+  const setTab = (t: Tab) => { setTabState(t); localStorage.setItem('tab', t); };
+  const showToast = useCallback<ShowToast>((t) => {
+    setToast(t);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 4500);
+  }, []);
+  const close = useCallback(() => setSheet(null), []);
+
+  const tasks = data.tasks.filter((t) => !t.deleted);
+  const left = tasks.filter((t) => !t.doneAt && t.due <= today).length;
+  const doneToday = tasks.filter((t) => t.doneAt && isoToKey(t.doneAt) === today).length;
+  const goals = activeGoals(data);
+  const off = goals.filter((g) => goalInfo(g, data, today).tone !== 'good').length;
+
+  const sub = tab === 'today'
+    ? `${fmtLong(today)} · ${left} left · ${doneToday} done`
+    : goals.length ? `${goals.length - off} on track · ${off} need${off === 1 ? 's' : ''} attention` : 'No goals yet';
+
+  return (
+    <div className="app">
+      <header className="hdr">
+        <div className="hrow">
+          <nav className="sw" role="tablist" aria-label="Sections">
+            <button type="button" role="tab" aria-selected={tab === 'today'} onClick={() => setTab('today')}>Today</button>
+            <button type="button" role="tab" aria-selected={tab === 'goals'} onClick={() => setTab('goals')}>
+              Goals{off > 0 && <i className="dot" aria-label={`${off} need attention`} />}
+            </button>
+          </nav>
+          <SyncButton status={sync} onClick={() => setSheet({ type: 'sync' })} />
+        </div>
+        <div className="sub">{loaded ? sub : ' '}</div>
+      </header>
+
+      {tab === 'today'
+        ? <Today data={data} today={today} onOpenTask={(id) => setSheet({ type: 'task', id })} toast={showToast} />
+        : <Goals data={data} today={today} onOpenGoal={(id) => setSheet({ type: 'goal', id })} onNew={() => setSheet({ type: 'new' })} onYear={() => setSheet({ type: 'year' })} />}
+
+      {tab === 'today' && <Composer today={today} />}
+
+      {sheet?.type === 'task' && <TaskSheet id={sheet.id} data={data} today={today} onClose={close} />}
+      {sheet?.type === 'goal' && <GoalSheet id={sheet.id} data={data} today={today} onClose={close} toast={showToast} />}
+      {sheet?.type === 'new' && <NewGoalSheet today={today} onClose={close} onCreated={() => { close(); setTab('goals'); }} />}
+      {sheet?.type === 'year' && <YearSheet data={data} today={today} onClose={close} />}
+      {sheet?.type === 'sync' && <SyncSheet status={sync} onClose={close} toast={showToast} />}
+
+      {toast && (
+        <div className={`toast ${tab === 'today' && !sheet ? 'up' : ''}`} role="status">
+          <span>{toast.text}</span>
+          {toast.undo && <button type="button" onClick={() => { toast.undo!(); setToast(null); }}>Undo</button>}
+        </div>
+      )}
+    </div>
+  );
+}
