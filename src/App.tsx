@@ -48,7 +48,47 @@ export default function App() {
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const toastTimer = useRef(0);
 
-  const setTab = (t: Tab) => { setTabState(t); localStorage.setItem('tab', t); };
+  const [slide, setSlide] = useState<'from-right' | 'from-left' | null>(null);
+  const setTab = (t: Tab) => {
+    if (t === tab) return;
+    setSlide(t === 'goals' ? 'from-right' : 'from-left');
+    setTabState(t);
+    localStorage.setItem('tab', t);
+  };
+
+  // Swipe left/right anywhere on the page to switch between Today and Goals.
+  const appRef = useRef<HTMLDivElement>(null);
+  const swipeState = useRef({ tab, sheetOpen: false });
+  swipeState.current = { tab, sheetOpen: sheet !== null };
+  const setTabRef = useRef(setTab);
+  setTabRef.current = setTab;
+  useEffect(() => {
+    const el = appRef.current;
+    if (!el) return;
+    let start: { x: number; y: number; t: number } | null = null;
+    const onStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (e.touches.length !== 1 || swipeState.current.sheetOpen || target.closest('input, textarea, select, .composer, [data-no-swipe]')) {
+        start = null;
+        return;
+      }
+      start = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+    };
+    const onEnd = (e: TouchEvent) => {
+      if (!start) return;
+      const dx = e.changedTouches[0].clientX - start.x;
+      const dy = e.changedTouches[0].clientY - start.y;
+      const quick = Date.now() - start.t < 700;
+      start = null;
+      if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      const cur = swipeState.current.tab;
+      if (dx < 0 && cur === 'today') setTabRef.current('goals');
+      if (dx > 0 && cur === 'goals') setTabRef.current('today');
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => { el.removeEventListener('touchstart', onStart); el.removeEventListener('touchend', onEnd); };
+  }, []);
   const showToast = useCallback<ShowToast>((t) => {
     setToast(t);
     clearTimeout(toastTimer.current);
@@ -67,7 +107,7 @@ export default function App() {
     : goals.length ? `${goals.length - off} on track · ${off} need${off === 1 ? 's' : ''} attention` : 'No goals yet';
 
   return (
-    <div className="app">
+    <div className="app" ref={appRef} data-slide={slide ?? undefined}>
       <header className="hdr">
         <div className="hrow">
           <nav className="sw" role="tablist" aria-label="Sections">

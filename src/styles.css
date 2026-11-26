@@ -243,3 +243,11 @@ code { font-size: 12.5px; background: var(--soft); border-radius: 5px; padding: 
 .ln.late .tx { color: var(--bad); }
 .rt .od { vertical-align: -2px; margin-right: 4px; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Switching Today/Goals: the new screen slides in from the side you swiped toward */
+.app[data-slide="from-right"] .view { animation: from-right 0.24s cubic-bezier(.2,.8,.2,1); }
+.app[data-slide="from-left"] .view { animation: from-left 0.24s cubic-bezier(.2,.8,.2,1); }
+@keyframes from-right { from { transform: translateX(24px); opacity: 0; } }
+@keyframes from-left { from { transform: translateX(-24px); opacity: 0; } }
+.view { touch-action: pan-y; }
+@media (prefers-reduced-motion: reduce) { .app[data-slide] .view { animation: none; } }
