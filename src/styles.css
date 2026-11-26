@@ -236,3 +236,5 @@ code { font-size: 12.5px; background: var(--soft); border-radius: 5px; padding: 
 .hist-list span.ck { display: grid; place-items: center; flex: none; }
 .hist-list .tx { cursor: default; }
 .hist-list .ln.done .tx { text-decoration: none; color: var(--fg); }
+.morerow .more:last-child { color: var(--fg); font-weight: 500; }
+.morerow .more:last-child::after { content: " →"; color: var(--dim); }
