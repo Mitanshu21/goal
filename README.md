@@ -9,6 +9,8 @@ A personal tasks and goals app. It has two screens and runs entirely in the brow
   - **Do it often**: e.g. gym 4× a week. One tap logs today, and you see the week and the last 8 weeks.
   - **Finish by a date**: progress comes from the tasks linked to the goal.
 - Shows the goals you've finished this year and this quarter.
+- **History**: every task you ticked off, grouped by day, with search ("when did I last call dad?").
+- **Phone reminders** (optional): timed tasks go into a "Goals" Google Calendar so your phone alerts you.
 
 The design files are in `design/` (`v3-simple.html` is the one this app follows).
 
@@ -47,6 +49,17 @@ The app creates this in your Drive:
 My Drive / Goal App / goal-app-data.json         ← live data
 My Drive / Goal App / Backups / backup-YYYY-MM-DD.json   ← one copy per day, last 30 kept
 ```
+
+## Phone reminders (optional)
+
+Tap the cloud icon → **Turn on reminders**. Every task with a time (like `Call mom 6pm`) is added to a separate **Goals** calendar in your Google Calendar with an alert at that time, so your phone's Calendar app reminds you. Ticking or deleting the task removes it. The app uses the `calendar.app.created` permission, which only reaches the calendar the app made, not your other calendars. Turning reminders off deletes the Goals calendar.
+
+One-time setup in Google Cloud (same project as above):
+
+1. Search **Google Calendar API** → **Enable**.
+2. **Google Auth Platform → Data Access → Add or remove scopes**: tick `.../auth/calendar.app.created` → **Update** → **Save**.
+
+On your phone, open Google Calendar and make sure the **Goals** calendar is ticked and allowed to notify.
 
 ## Deploy free on Vercel
 

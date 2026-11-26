@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { get, set } from 'idb-keyval';
-import type { Data, Goal, GoalKind, Log, Repeat, Task } from './types';
+import type { Data, Goal, GoalKind, Log, Repeat, Settings, Task } from './types';
 import { addDays, diffDays, isoToKey, nowISO, todayKey } from './dates';
 import { emptyData, mergeData, normalize } from './merge';
 
@@ -56,6 +56,12 @@ const stamp = () => { const t = nowISO(); return { createdAt: t, updatedAt: t };
 function patchIn<T extends { id: string; updatedAt: string }>(arr: T[], id: string, p: Partial<T>): T[] {
   const t = nowISO();
   return arr.map((x) => (x.id === id ? { ...x, ...p, updatedAt: t } : x));
+}
+
+// ---------- settings ----------
+
+export function updateSettings(p: Partial<Omit<Settings, 'updatedAt'>>, local = true) {
+  commit({ ...data, settings: { ...data.settings, ...p, updatedAt: nowISO() } }, local);
 }
 
 // ---------- tasks ----------

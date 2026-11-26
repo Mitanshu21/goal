@@ -3,11 +3,13 @@
  * browser a short-lived access token, and we call the Drive REST API directly.
  *
  * Scope is `drive.file`: the app can only see files it created itself,
- * nothing else in your Drive.
+ * nothing else in your Drive. If phone reminders are turned on we also ask for
+ * `calendar.app.created`: the app can only touch the "Goals" calendar it made.
  */
 
 const CLIENT_ID = ((import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? '').trim();
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export const CAL_SCOPE = 'https://www.googleapis.com/auth/calendar.app.created';
 const TOKEN_KEY = 'gd_token';
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -17,8 +19,8 @@ export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-interface TokenResponse { access_token?: string; expires_in?: number; error?: string; error_description?: string }
-interface TokenClient { requestAccessToken(o?: { prompt?: string; login_hint?: string }): void }
+interface TokenResponse { access_token?: string; expires_in?: number; scope?: string; error?: string; error_description?: string }
+interface TokenClient { requestAccessToken(o?: { prompt?: string; login_hint?: string; scope?: string; include_granted_scopes?: boolean }): void }
 declare global {
   interface Window {
     google?: {
@@ -41,6 +43,11 @@ export const hasClientId = () => CLIENT_ID.length > 0;
 let client: TokenClient | null = null;
 let waiting: { resolve: (t: string) => void; reject: (e: Error) => void } | null = null;
 let loading: Promise<void> | null = null;
+let wantCalendar = false;
+
+/** Ask for calendar access too on every sign-in from now on. */
+export const setWantCalendar = (on: boolean) => { wantCalendar = on; };
+const scopes = () => (wantCalendar ? `${SCOPE} ${CAL_SCOPE}` : SCOPE);
 
 export function loadGis(): Promise<void> {
   if (!CLIENT_ID) return Promise.reject(new Error('VITE_GOOGLE_CLIENT_ID is not set'));
@@ -57,7 +64,7 @@ export function loadGis(): Promise<void> {
           callback: (r) => {
             const w = waiting; waiting = null;
             if (r.error || !r.access_token) return w?.reject(new AuthError(r.error_description || r.error || 'Google sign-in failed'));
-            saveToken(r.access_token, r.expires_in ?? 3600);
+            saveToken(r.access_token, r.expires_in ?? 3600, r.scope ?? SCOPE);
             w?.resolve(r.access_token);
           },
           error_callback: (e) => {
@@ -78,17 +85,21 @@ export function loadGis(): Promise<void> {
 
 export const gisReady = () => client !== null;
 
-function saveToken(t: string, expiresIn: number) {
-  localStorage.setItem(TOKEN_KEY, JSON.stringify({ t, exp: Date.now() + expiresIn * 1000 }));
+function saveToken(t: string, expiresIn: number, scope: string) {
+  localStorage.setItem(TOKEN_KEY, JSON.stringify({ t, exp: Date.now() + expiresIn * 1000, scope }));
 }
 
-export function getToken(): string | null {
+function readToken(): { t: string; exp: number; scope?: string } | null {
   try {
-    const v = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null') as { t: string; exp: number } | null;
-    if (v && v.exp - 60_000 > Date.now()) return v.t;
+    const v = JSON.parse(localStorage.getItem(TOKEN_KEY) || 'null') as { t: string; exp: number; scope?: string } | null;
+    if (v && v.exp - 60_000 > Date.now()) return v;
   } catch { /* ignore */ }
   return null;
 }
+
+export const getToken = (): string | null => readToken()?.t ?? null;
+/** True when the current token is allowed to manage the Goals calendar. */
+export const hasCalendarScope = () => (readToken()?.scope ?? '').split(' ').includes(CAL_SCOPE);
 
 export const clearToken = () => localStorage.removeItem(TOKEN_KEY);
 
@@ -102,7 +113,12 @@ export function requestToken(chooseAccount: boolean, hint?: string | null): Prom
   return new Promise<string>((resolve, reject) => {
     waiting?.reject(new AuthError('Superseded'));
     waiting = { resolve, reject };
-    client!.requestAccessToken({ prompt: chooseAccount ? 'select_account' : '', ...(hint ? { login_hint: hint } : {}) });
+    client!.requestAccessToken({
+      prompt: chooseAccount ? 'select_account' : '',
+      scope: scopes(),
+      include_granted_scopes: true,
+      ...(hint ? { login_hint: hint } : {}),
+    });
   });
 }
 
@@ -112,7 +128,7 @@ export function signOut() {
   clearToken();
 }
 
-async function api(url: string, init: RequestInit = {}): Promise<Response> {
+export async function api(url: string, init: RequestInit = {}): Promise<Response> {
   const t = getToken();
   if (!t) throw new AuthError('Not signed in');
   const r = await fetch(url, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${t}` } });
@@ -121,7 +137,8 @@ async function api(url: string, init: RequestInit = {}): Promise<Response> {
     const body = await r.text().catch(() => '');
     let msg = body;
     try { msg = (JSON.parse(body) as { error?: { message?: string } }).error?.message ?? body; } catch { /* plain text */ }
-    throw new HttpError(r.status, `Google Drive error ${r.status}: ${msg.slice(0, 160)}`);
+    const what = url.includes('/calendar/') ? 'Google Calendar' : 'Google Drive';
+    throw new HttpError(r.status, `${what} error ${r.status}: ${msg.slice(0, 160)}`);
   }
   return r;
 }

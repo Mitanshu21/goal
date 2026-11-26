@@ -227,3 +227,12 @@ code { font-size: 12.5px; background: var(--soft); border-radius: 5px; padding: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; transition: none !important; }
 }
+
+/* Done-task history */
+.morerow { display: flex; justify-content: space-between; gap: 16px; }
+.morerow .more:last-child { margin-left: auto; }
+.search { width: 100%; border: 1px solid var(--line); background: var(--soft); border-radius: 12px; padding: 11px 12px; font-size: 16px; -webkit-appearance: none; appearance: none; }
+.hist-list .ln { animation: none; padding: 9px 0; }
+.hist-list span.ck { display: grid; place-items: center; flex: none; }
+.hist-list .tx { cursor: default; }
+.hist-list .ln.done .tx { text-decoration: none; color: var(--fg); }

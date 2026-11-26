@@ -12,6 +12,7 @@ import GoalSheet from './components/GoalSheet';
 import NewGoalSheet from './components/NewGoalSheet';
 import YearSheet from './components/YearSheet';
 import SyncSheet from './components/SyncSheet';
+import HistorySheet from './components/HistorySheet';
 
 export type Tab = 'today' | 'goals';
 export type SheetState =
@@ -20,6 +21,7 @@ export type SheetState =
   | { type: 'new' }
   | { type: 'year' }
   | { type: 'sync' }
+  | { type: 'history' }
   | null;
 export interface ToastMsg { text: string; undo?: () => void }
 export type ShowToast = (t: ToastMsg) => void;
@@ -80,7 +82,7 @@ export default function App() {
       </header>
 
       {tab === 'today'
-        ? <Today data={data} today={today} onOpenTask={(id) => setSheet({ type: 'task', id })} toast={showToast} />
+        ? <Today data={data} today={today} onOpenTask={(id) => setSheet({ type: 'task', id })} onHistory={() => setSheet({ type: 'history' })} toast={showToast} />
         : <Goals data={data} today={today} onOpenGoal={(id) => setSheet({ type: 'goal', id })} onNew={() => setSheet({ type: 'new' })} onYear={() => setSheet({ type: 'year' })} />}
 
       {tab === 'today' && <Composer today={today} />}
@@ -89,6 +91,7 @@ export default function App() {
       {sheet?.type === 'goal' && <GoalSheet id={sheet.id} data={data} today={today} onClose={close} toast={showToast} />}
       {sheet?.type === 'new' && <NewGoalSheet today={today} onClose={close} onCreated={() => { close(); setTab('goals'); }} />}
       {sheet?.type === 'year' && <YearSheet data={data} today={today} onClose={close} />}
+      {sheet?.type === 'history' && <HistorySheet data={data} today={today} onClose={close} />}
       {sheet?.type === 'sync' && <SyncSheet status={sync} onClose={close} toast={showToast} />}
 
       {toast && (

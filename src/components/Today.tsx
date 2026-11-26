@@ -6,12 +6,12 @@ import TaskLine from './TaskLine';
 import LogButton from './LogButton';
 import type { ShowToast } from '../App';
 
-interface Props { data: Data; today: string; onOpenTask: (id: string) => void; toast: ShowToast }
+interface Props { data: Data; today: string; onOpenTask: (id: string) => void; onHistory: () => void; toast: ShowToast }
 
 const byTime = (a: Task, b: Task) =>
   a.due.localeCompare(b.due) || (a.time ?? '99').localeCompare(b.time ?? '99') || a.createdAt.localeCompare(b.createdAt);
 
-export default function Today({ data, today, onOpenTask, toast }: Props) {
+export default function Today({ data, today, onOpenTask, onHistory, toast }: Props) {
   const [showDone, setShowDone] = useState(false);
   const tasks = data.tasks.filter((t) => !t.deleted);
   const open = tasks.filter((t) => !t.doneAt).sort(byTime);
@@ -60,14 +60,15 @@ export default function Today({ data, today, onOpenTask, toast }: Props) {
       {group('Today', now)}
       {group('Later', later)}
 
-      {doneToday.length > 0 && (
-        <>
+      <div className="morerow">
+        {doneToday.length > 0 && (
           <button type="button" className="more" onClick={() => setShowDone((s) => !s)}>
             {showDone ? 'Hide' : 'Show'} {doneToday.length} done today
           </button>
-          {showDone && doneToday.map(line)}
-        </>
-      )}
+        )}
+        <button type="button" className="more" onClick={onHistory}>History</button>
+      </div>
+      {showDone && doneToday.map(line)}
     </main>
   );
 }

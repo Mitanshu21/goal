@@ -44,9 +44,17 @@ export interface Log extends Base {
   amount: number;
 }
 
+/** App-wide settings, synced between devices like everything else. */
+export interface Settings {
+  calendar: boolean; // add timed tasks to a "Goals" Google Calendar
+  calendarId: string | null; // that calendar, shared so every device uses the same one
+  updatedAt: string;
+}
+
 export interface Data {
   version: 1;
   tasks: Task[];
   goals: Goal[];
   logs: Log[];
+  settings: Settings;
 }

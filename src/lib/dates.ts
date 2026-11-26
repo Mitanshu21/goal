@@ -85,3 +85,9 @@ export function timeAgo(iso: string): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
   return fmtDate(isoToKey(iso));
 }
+
+/** "6:12 pm" for an ISO timestamp, in local time. */
+export function plainTime(iso: string): string {
+  const d = new Date(iso);
+  return fmtTime(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+}

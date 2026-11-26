@@ -1,15 +1,22 @@
-import type { Base, Data } from './types';
+import type { Base, Data, Settings } from './types';
 
-export const emptyData = (): Data => ({ version: 1, tasks: [], goals: [], logs: [] });
+const defaultSettings = (): Settings => ({ calendar: false, calendarId: null, updatedAt: '' });
+export const emptyData = (): Data => ({ version: 1, tasks: [], goals: [], logs: [], settings: defaultSettings() });
 
 /** Accepts anything that looks like our file and returns clean Data. */
 export function normalize(d: unknown): Data {
   const o = (d ?? {}) as Partial<Data>;
+  const s = (o.settings ?? {}) as Partial<Settings>;
   return {
     version: 1,
     tasks: Array.isArray(o.tasks) ? o.tasks : [],
     goals: Array.isArray(o.goals) ? o.goals : [],
     logs: Array.isArray(o.logs) ? o.logs : [],
+    settings: {
+      calendar: s.calendar === true,
+      calendarId: typeof s.calendarId === 'string' ? s.calendarId : null,
+      updatedAt: typeof s.updatedAt === 'string' ? s.updatedAt : '',
+    },
   };
 }
 
@@ -29,6 +36,7 @@ export const mergeData = (a: Data, b: Data): Data => ({
   tasks: mergeArr(a.tasks, b.tasks),
   goals: mergeArr(a.goals, b.goals),
   logs: mergeArr(a.logs, b.logs),
+  settings: (b.settings?.updatedAt ?? '') > (a.settings?.updatedAt ?? '') ? b.settings : a.settings,
 });
 
 const canonical = (d: Data) => JSON.stringify(mergeData(d, emptyData()));

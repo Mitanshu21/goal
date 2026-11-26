@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import * as drive from './drive';
-import { getData, replaceFromSync, setOnLocalChange } from './store';
+import * as cal from './calendar';
+import { getData, replaceFromSync, setOnLocalChange, updateSettings } from './store';
 import { mergeData, normalize, sameData } from './merge';
 import { todayKey } from './dates';
 import type { Data } from './types';
@@ -22,6 +23,9 @@ export interface SyncStatus {
   user: string | null;
   message: string | null;
   pending: boolean; // local changes not yet uploaded
+  /** Phone reminders: 'ask' = turned on, but this device still needs Google's OK. */
+  calendar: 'off' | 'on' | 'ask' | 'error';
+  calMessage: string | null;
 }
 
 const FILE = 'goal-app-data.json';
@@ -35,6 +39,8 @@ let status: SyncStatus = {
   user: localStorage.getItem(LS.user),
   message: null,
   pending: false,
+  calendar: 'off',
+  calMessage: null,
 };
 const subs = new Set<() => void>();
 const subscribe = (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn); }; };
@@ -62,6 +68,7 @@ export async function syncNow(): Promise<void> {
   setStatus({ state: 'syncing', message: null });
   try {
     await doSync();
+    await calendarStep();
     const t = new Date().toISOString();
     localStorage.setItem(LS.last, t);
     setStatus({ state: 'idle', lastSync: t, pending: false });
@@ -116,6 +123,55 @@ async function dailyBackup(ids: Ids, d: Data) {
   localStorage.setItem(LS.backup, today);
 }
 
+async function calendarStep() {
+  const s = getData().settings;
+  drive.setWantCalendar(s.calendar);
+  if (!s.calendar) { cal.forgetPushed(); return setStatus({ calendar: 'off', calMessage: null }); }
+  if (!drive.hasCalendarScope()) return setStatus({ calendar: 'ask', calMessage: null });
+  try {
+    await cal.syncCalendar(getData(), todayKey());
+    setStatus({ calendar: 'on', calMessage: null });
+  } catch (e) {
+    if (e instanceof drive.AuthError) throw e;
+    if (e instanceof cal.CalendarGone) {
+      updateSettings({ calendar: false, calendarId: null });
+      return setStatus({ calendar: 'off', calMessage: 'The Goals calendar was deleted in Google Calendar, so reminders were turned off.' });
+    }
+    if (e instanceof drive.HttpError && e.status === 403) return setStatus({ calendar: 'ask', calMessage: null });
+    setStatus({ calendar: 'error', calMessage: (e as Error).message });
+  }
+}
+
+/** Call from a button tap: asks Google for calendar access and makes the Goals calendar. */
+export function enableCalendar(): Promise<void> {
+  drive.setWantCalendar(true);
+  setStatus({ calMessage: null });
+  return drive.requestToken(false, status.user)
+    .then(async () => {
+      if (!drive.hasCalendarScope()) throw new Error('Calendar access was not allowed, so reminders are still off.');
+      const id = getData().settings.calendarId ?? (await cal.createCalendar());
+      updateSettings({ calendar: true, calendarId: id });
+      setStatus({ calendar: 'on' });
+      await syncNow();
+    })
+    .catch((e: Error) => {
+      drive.setWantCalendar(getData().settings.calendar);
+      setStatus({ calendar: getData().settings.calendar ? 'ask' : 'off', calMessage: e.message });
+    });
+}
+
+/** Turns reminders off everywhere and deletes the Goals calendar. */
+export async function disableCalendar(): Promise<void> {
+  const id = getData().settings.calendarId;
+  updateSettings({ calendar: false, calendarId: null });
+  drive.setWantCalendar(false);
+  setStatus({ calendar: 'off', calMessage: null });
+  cal.forgetPushed();
+  if (id && drive.getToken() && drive.hasCalendarScope()) {
+    await cal.deleteCalendar(id).catch((e: Error) => setStatus({ calMessage: `Could not delete the Goals calendar: ${e.message}` }));
+  }
+}
+
 /**
  * Google tokens last about an hour and a web app can't refresh them in the
  * background. When one runs out we wait for your next tap anywhere in the app
@@ -167,11 +223,15 @@ export function connectOrResume() {
 
 export function disconnect() {
   drive.signOut();
+  cal.forgetPushed();
   for (const k of [LS.connected, LS.ids, LS.user, LS.backup, LS.last]) localStorage.removeItem(k);
   setStatus({ connected: false, state: 'off', user: null, lastSync: null, message: null });
 }
 
 export function startSync() {
+  const s = getData().settings;
+  drive.setWantCalendar(s.calendar);
+  if (s.calendar) setStatus({ calendar: drive.hasCalendarScope() ? 'on' : 'ask' });
   setOnLocalChange(() => {
     if (status.connected) setStatus({ pending: true });
     clearTimeout(timer);

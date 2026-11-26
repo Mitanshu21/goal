@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { connectOrResume, disconnect, syncNow, type SyncStatus } from '../lib/sync';
+import { useRef, useState } from 'react';
+import { connectOrResume, disableCalendar, disconnect, enableCalendar, syncNow, type SyncStatus } from '../lib/sync';
 import { getData, importData } from '../lib/store';
 import { timeAgo, todayKey } from '../lib/dates';
 import Sheet from './Sheet';
@@ -58,6 +58,8 @@ export default function SyncSheet({ status, onClose, toast }: { status: SyncStat
         </p>
       )}
 
+      {status.connected && <Reminders status={status} toast={toast} />}
+
       <h4 className="lab"><span>Manual backup</span></h4>
       <div className="row2">
         <button type="button" className="btn soft" onClick={exportJson}>Export file</button>
@@ -72,5 +74,46 @@ export default function SyncSheet({ status, onClose, toast }: { status: SyncStat
       )}
       <button type="button" className="btn link" onClick={onClose}>Close</button>
     </Sheet>
+  );
+}
+
+function Reminders({ status, toast }: { status: SyncStatus; toast: ShowToast }) {
+  const [busy, setBusy] = useState(false);
+  const [sure, setSure] = useState(false);
+  const c = status.calendar;
+  const turnOn = () => {
+    setBusy(true);
+    void enableCalendar().finally(() => setBusy(false));
+  };
+  const turnOff = () => {
+    if (!sure) return setSure(true);
+    setSure(false);
+    void disableCalendar().then(() => toast({ text: 'Reminders off. The Goals calendar was removed.' }));
+  };
+
+  return (
+    <>
+      <h4 className="lab"><span>Phone reminders</span><span>{c === 'on' ? 'On' : c === 'ask' ? 'Needs OK' : ''}</span></h4>
+      <p className="say">
+        {c === 'off' && <>Get an alert at the time of tasks like <b>Call mom 6pm</b>. The app puts them in a separate <b>Goals</b> calendar in your Google Calendar, and your phone's Calendar app does the alerting. It can't see or change your other calendars.</>}
+        {c === 'on' && <>On. Tasks with a time show up in the <b>Goals</b> calendar with an alert at that time. Ticking a task removes it.</>}
+        {c === 'ask' && <>Reminders are on, but this device still needs Google's OK to add them.</>}
+        {c === 'error' && <>Reminders couldn't be updated just now. The app will try again on the next sync.</>}
+      </p>
+      {status.calMessage && <p className="sm bad">{status.calMessage}</p>}
+      {(c === 'off' || c === 'ask') && (
+        <button type="button" className="btn" onClick={turnOn} disabled={busy || status.state === 'offline'} data-no-autoauth>
+          {busy ? 'Waiting for Google…' : c === 'off' ? 'Turn on reminders' : 'Allow on this device'}
+        </button>
+      )}
+      {c === 'on' && (
+        <p className="sm">Not getting alerts? In Google Calendar on your phone, make sure the <b>Goals</b> calendar is ticked and its notifications are allowed.</p>
+      )}
+      {c !== 'off' && (
+        <button type="button" className="btn danger" onClick={turnOff} onBlur={() => setSure(false)}>
+          {sure ? 'Tap again: turn off and delete the Goals calendar' : 'Turn off reminders'}
+        </button>
+      )}
+    </>
   );
 }
