@@ -19,6 +19,8 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
+/* No pull-to-refresh or bounce: a swipe down is for closing panels, not reloading the page */
+html { overscroll-behavior: none; }
 body {
   margin: 0;
   background: var(--outer);
@@ -278,3 +280,10 @@ code { font-size: 12.5px; background: var(--soft); border-radius: 5px; padding: 
 .nt-d { align-self: flex-start; }
 .nt-x { font-size: 14.5px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
 .nt-x b { font-weight: 600; font-size: 15.5px; }
+
+/* Scrolling areas never hand their overscroll to the page (no pull-to-refresh) */
+.view, .sheet, .note-text { overscroll-behavior: contain; }
+.sheet.dragging { transition: none; }
+.sheet.settling { transition: transform 0.22s cubic-bezier(.2,.8,.2,1); }
+.scrim { transition: opacity 0.22s; }
+.sheet::before { cursor: grab; }
