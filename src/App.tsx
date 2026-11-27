@@ -15,6 +15,7 @@ import SyncSheet from './components/SyncSheet';
 import HistorySheet from './components/HistorySheet';
 import Notes from './components/Notes';
 import NoteSheet from './components/NoteSheet';
+import DeletedNotesSheet from './components/DeletedNotesSheet';
 import { addNote } from './lib/store';
 
 export type Tab = 'today' | 'goals' | 'notes';
@@ -27,6 +28,7 @@ export type SheetState =
   | { type: 'sync' }
   | { type: 'history' }
   | { type: 'note'; id: string; isNew: boolean }
+  | { type: 'deletedNotes' }
   | null;
 export interface ToastMsg { text: string; undo?: () => void }
 export type ShowToast = (t: ToastMsg) => void;
@@ -137,6 +139,7 @@ export default function App() {
           data={data}
           onOpen={(id) => setSheet({ type: 'note', id, isNew: false })}
           onNew={() => setSheet({ type: 'note', id: addNote().id, isNew: true })}
+          onDeleted={() => setSheet({ type: 'deletedNotes' })}
         />
       )}
       {tab === 'notes' ? null : tab === 'today'
@@ -149,7 +152,8 @@ export default function App() {
       {sheet?.type === 'goal' && <GoalSheet id={sheet.id} data={data} today={today} onClose={close} toast={showToast} />}
       {sheet?.type === 'new' && <NewGoalSheet today={today} onClose={close} onCreated={() => { close(); setTab('goals'); }} />}
       {sheet?.type === 'year' && <YearSheet data={data} today={today} onClose={close} />}
-      {sheet?.type === 'note' && <NoteSheet key={sheet.id} id={sheet.id} isNew={sheet.isNew} data={data} onClose={close} toast={showToast} />}
+      {sheet?.type === 'note' && <NoteSheet key={sheet.id} id={sheet.id} isNew={sheet.isNew} data={data} onClose={close} />}
+      {sheet?.type === 'deletedNotes' && <DeletedNotesSheet data={data} onClose={close} />}
       {sheet?.type === 'history' && <HistorySheet data={data} today={today} onClose={close} />}
       {sheet?.type === 'sync' && <SyncSheet status={sync} onClose={close} toast={showToast} />}
 

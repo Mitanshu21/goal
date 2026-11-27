@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Data, Note } from '../lib/types';
 import { timeAgo } from '../lib/dates';
 
-interface Props { data: Data; onOpen: (id: string) => void; onNew: () => void }
+interface Props { data: Data; onOpen: (id: string) => void; onNew: () => void; onDeleted: () => void }
 
 /** First non-empty line is the title; the rest keeps its line breaks. */
 export function splitNote(text: string): { title: string; body: string } {
@@ -12,11 +12,12 @@ export function splitNote(text: string): { title: string; body: string } {
   return { title: lines[i].trim(), body: lines.slice(i + 1).join('\n').replace(/^\s*\n|\s+$/g, '') };
 }
 
-export default function Notes({ data, onOpen, onNew }: Props) {
+export default function Notes({ data, onOpen, onNew, onDeleted }: Props) {
   const [q, setQ] = useState('');
   const notes = data.notes
     .filter((n) => !n.deleted && n.text.trim())
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const deletedCount = data.notes.filter((n) => n.deleted && n.text.trim()).length;
   const needle = q.trim().toLowerCase();
   const shown = needle ? notes.filter((n) => n.text.toLowerCase().includes(needle)) : notes;
 
@@ -46,6 +47,9 @@ export default function Notes({ data, onOpen, onNew }: Props) {
       {notes.length === 0 && <p className="empty">No notes yet. Jot down anything: ideas, things to remember, what someone told you.</p>}
       {notes.length > 0 && shown.length === 0 && <p className="empty">No note matches “{q.trim()}”.</p>}
       <div className="nlist">{shown.map(row)}</div>
+      {deletedCount > 0 && (
+        <button type="button" className="more" onClick={onDeleted}>Deleted notes · {deletedCount}</button>
+      )}
       <button type="button" className="newg newn" onClick={onNew}>+ New note</button>
     </main>
   );

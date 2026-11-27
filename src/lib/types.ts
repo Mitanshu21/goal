@@ -5,7 +5,8 @@ export interface Base {
   id: ID;
   createdAt: string; // ISO timestamp
   updatedAt: string; // ISO timestamp, the newest version wins on merge
-  deleted?: boolean; // tombstone, so deletes also sync
+  deleted?: boolean; // tombstone, so deletes also sync; kept forever so it can be restored
+  auto?: boolean; // removed by the app itself (e.g. an unticked repeat's next copy), not by you
 }
 
 export type Repeat = 'daily' | 'weekly' | null;

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Data } from '../lib/types';
-import { deleteNote, restoreNote, updateNote } from '../lib/store';
+import { deleteNote, updateNote } from '../lib/store';
 import { timeAgo } from '../lib/dates';
 import Sheet from './Sheet';
-import type { ShowToast } from '../App';
 
-interface Props { id: string; data: Data; isNew: boolean; onClose: () => void; toast: ShowToast }
+interface Props { id: string; data: Data; isNew: boolean; onClose: () => void }
 
 /** Full-height editor. Saves as you type; an empty note is discarded on close. */
-export default function NoteSheet({ id, data, isNew, onClose, toast }: Props) {
+export default function NoteSheet({ id, data, isNew, onClose }: Props) {
   const note = data.notes.find((n) => n.id === id);
   const [text, setText] = useState(note?.text ?? '');
   const [sure, setSure] = useState(false);
@@ -41,7 +40,6 @@ export default function NoteSheet({ id, data, isNew, onClose, toast }: Props) {
     flush(); // keep the latest text, so Undo brings it back whole
     deleteNote(id);
     onClose();
-    if (text.trim()) toast({ text: 'Note deleted', undo: () => restoreNote(id) });
   };
 
   if (!note) return null;

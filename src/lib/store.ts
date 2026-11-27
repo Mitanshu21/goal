@@ -30,11 +30,20 @@ function commit(next: Data, local = true) {
   if (local) onLocalChange?.();
 }
 
-/** Drop tombstones older than 90 days so the file doesn't grow forever. */
+/**
+ * Things you delete are kept forever so they can be restored from history.
+ * Only clutter you never saw is dropped after 90 days: copies the app removed
+ * by itself, empty notes, and undone goal logs.
+ */
 function purge(d: Data): Data {
   const cut = new Date(Date.now() - 90 * 864e5).toISOString();
-  const keep = <T extends { deleted?: boolean; updatedAt: string }>(a: T[]) => a.filter((x) => !x.deleted || x.updatedAt > cut);
-  return { ...d, tasks: keep(d.tasks), goals: keep(d.goals), logs: keep(d.logs), notes: keep(d.notes) };
+  const old = (x: { deleted?: boolean; updatedAt: string }) => x.deleted && x.updatedAt <= cut;
+  return {
+    ...d,
+    tasks: d.tasks.filter((t) => !(old(t) && t.auto)),
+    notes: d.notes.filter((n) => !(old(n) && !n.text.trim())),
+    logs: d.logs.filter((l) => !old(l)),
+  };
 }
 
 export async function loadLocal() {
@@ -77,6 +86,7 @@ export function addTask(t: { title: string; due: string; time?: string | null; r
 
 export const updateTask = (id: string, p: Partial<Task>) => commit({ ...data, tasks: patchIn(data.tasks, id, p) });
 export const deleteTask = (id: string) => updateTask(id, { deleted: true });
+export const restoreTask = (id: string) => updateTask(id, { deleted: false, auto: false });
 
 /** Ticks or unticks a task. Ticking a repeating task creates the next one. */
 export function toggleTask(id: string): { done: boolean; next: Task | null } {
@@ -101,7 +111,7 @@ export function toggleTask(id: string): { done: boolean; next: Task | null } {
   }
 
   let tasks = data.tasks.map((x) => (x.id === id ? { ...x, doneAt: null, nextId: null, updatedAt: now } : x));
-  if (t.nextId) tasks = tasks.map((x) => (x.id === t.nextId && !x.doneAt ? { ...x, deleted: true, updatedAt: now } : x));
+  if (t.nextId) tasks = tasks.map((x) => (x.id === t.nextId && !x.doneAt ? { ...x, deleted: true, auto: true, updatedAt: now } : x));
   commit({ ...data, tasks });
   return { done: false, next: null };
 }
@@ -120,6 +130,7 @@ export const updateGoal = (id: string, p: Partial<Goal>) => commit({ ...data, go
 export const completeGoal = (id: string) => updateGoal(id, { completedAt: nowISO() });
 export const reopenGoal = (id: string) => updateGoal(id, { completedAt: null });
 export const deleteGoal = (id: string) => updateGoal(id, { deleted: true });
+export const restoreGoal = (id: string) => updateGoal(id, { deleted: false });
 
 // ---------- notes ----------
 
