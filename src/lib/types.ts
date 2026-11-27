@@ -44,6 +44,11 @@ export interface Log extends Base {
   amount: number;
 }
 
+/** A plain text note. The first line is shown as its title. */
+export interface Note extends Base {
+  text: string;
+}
+
 /** App-wide settings, synced between devices like everything else. */
 export interface Settings {
   calendar: boolean; // add timed tasks to a "Goals" Google Calendar
@@ -56,5 +61,6 @@ export interface Data {
   tasks: Task[];
   goals: Goal[];
   logs: Log[];
+  notes: Note[];
   settings: Settings;
 }

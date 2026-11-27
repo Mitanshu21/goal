@@ -1,6 +1,6 @@
 # Goals
 
-A personal tasks and goals app. It has two screens and runs entirely in the browser: no server and no database to pay for. It installs on your phone like a normal app, and your data is backed up to **your own Google Drive** automatically.
+A personal tasks and goals app. It has three screens (Today, Goals, Notes; swipe between them) and runs entirely in the browser: no server and no database to pay for. It installs on your phone like a normal app, and your data is backed up to **your own Google Drive** automatically.
 
 - **Today**: tasks with deadlines. Type them naturally, like `Call mom tomorrow 6pm` or `Call dad every sunday` (see [What you can type](#what-you-can-type)). Late tasks turn red and have a one-tap **Tomorrow** button. Repeating tasks add the next one when you tick them. Tap a task to edit it.
 - **Goals**: four kinds of goal, and each one tells you whether you're on track.
@@ -9,6 +9,7 @@ A personal tasks and goals app. It has two screens and runs entirely in the brow
   - **Do it often**: e.g. gym 4× a week. One tap logs today, and you see the week and the last 8 weeks.
   - **Finish by a date**: progress comes from the tasks linked to the goal.
 - Shows the goals you've finished this year and this quarter.
+- **Notes**: simple text notes. The first line is the title; they save as you type and sync like everything else.
 - **History**: every task you ticked off, grouped by day, with search ("when did I last call dad?").
 - **Phone reminders** (optional): timed tasks go into a "Goals" Google Calendar so your phone alerts you.
 

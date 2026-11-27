@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { get, set } from 'idb-keyval';
-import type { Data, Goal, GoalKind, Log, Repeat, Settings, Task } from './types';
+import type { Data, Goal, GoalKind, Log, Note, Repeat, Settings, Task } from './types';
 import { addDays, diffDays, isoToKey, nowISO, todayKey } from './dates';
 import { emptyData, mergeData, normalize } from './merge';
 
@@ -34,7 +34,7 @@ function commit(next: Data, local = true) {
 function purge(d: Data): Data {
   const cut = new Date(Date.now() - 90 * 864e5).toISOString();
   const keep = <T extends { deleted?: boolean; updatedAt: string }>(a: T[]) => a.filter((x) => !x.deleted || x.updatedAt > cut);
-  return { ...d, tasks: keep(d.tasks), goals: keep(d.goals), logs: keep(d.logs) };
+  return { ...d, tasks: keep(d.tasks), goals: keep(d.goals), logs: keep(d.logs), notes: keep(d.notes) };
 }
 
 export async function loadLocal() {
@@ -120,6 +120,22 @@ export const updateGoal = (id: string, p: Partial<Goal>) => commit({ ...data, go
 export const completeGoal = (id: string) => updateGoal(id, { completedAt: nowISO() });
 export const reopenGoal = (id: string) => updateGoal(id, { completedAt: null });
 export const deleteGoal = (id: string) => updateGoal(id, { deleted: true });
+
+// ---------- notes ----------
+
+export function addNote(text = ''): Note {
+  const n: Note = { id: uid(), ...stamp(), text };
+  commit({ ...data, notes: [...data.notes, n] });
+  return n;
+}
+
+export function updateNote(id: string, text: string) {
+  const n = data.notes.find((x) => x.id === id);
+  if (n && n.text !== text) commit({ ...data, notes: patchIn(data.notes, id, { text }) });
+}
+
+export const deleteNote = (id: string) => commit({ ...data, notes: patchIn(data.notes, id, { deleted: true }) });
+export const restoreNote = (id: string) => commit({ ...data, notes: patchIn(data.notes, id, { deleted: false }) });
 
 // ---------- logs ----------
 

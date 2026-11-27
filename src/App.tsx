@@ -13,8 +13,12 @@ import NewGoalSheet from './components/NewGoalSheet';
 import YearSheet from './components/YearSheet';
 import SyncSheet from './components/SyncSheet';
 import HistorySheet from './components/HistorySheet';
+import Notes from './components/Notes';
+import NoteSheet from './components/NoteSheet';
+import { addNote } from './lib/store';
 
-export type Tab = 'today' | 'goals';
+export type Tab = 'today' | 'goals' | 'notes';
+const TABS: Tab[] = ['today', 'goals', 'notes'];
 export type SheetState =
   | { type: 'task'; id: string }
   | { type: 'goal'; id: string }
@@ -22,6 +26,7 @@ export type SheetState =
   | { type: 'year' }
   | { type: 'sync' }
   | { type: 'history' }
+  | { type: 'note'; id: string; isNew: boolean }
   | null;
 export interface ToastMsg { text: string; undo?: () => void }
 export type ShowToast = (t: ToastMsg) => void;
@@ -43,7 +48,10 @@ export default function App() {
   const loaded = useLoaded();
   const sync = useSync();
   const today = useToday();
-  const [tab, setTabState] = useState<Tab>(() => (localStorage.getItem('tab') === 'goals' ? 'goals' : 'today'));
+  const [tab, setTabState] = useState<Tab>(() => {
+    const t = localStorage.getItem('tab') as Tab | null;
+    return t && TABS.includes(t) ? t : 'today';
+  });
   const [sheet, setSheet] = useState<SheetState>(null);
   const [toast, setToast] = useState<ToastMsg | null>(null);
   const toastTimer = useRef(0);
@@ -51,7 +59,7 @@ export default function App() {
   const [slide, setSlide] = useState<'from-right' | 'from-left' | null>(null);
   const setTab = (t: Tab) => {
     if (t === tab) return;
-    setSlide(t === 'goals' ? 'from-right' : 'from-left');
+    setSlide(TABS.indexOf(t) > TABS.indexOf(tab) ? 'from-right' : 'from-left');
     setTabState(t);
     localStorage.setItem('tab', t);
   };
@@ -81,9 +89,8 @@ export default function App() {
       const quick = Date.now() - start.t < 700;
       start = null;
       if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-      const cur = swipeState.current.tab;
-      if (dx < 0 && cur === 'today') setTabRef.current('goals');
-      if (dx > 0 && cur === 'goals') setTabRef.current('today');
+      const next = TABS[TABS.indexOf(swipeState.current.tab) + (dx < 0 ? 1 : -1)];
+      if (next) setTabRef.current(next);
     };
     el.addEventListener('touchstart', onStart, { passive: true });
     el.addEventListener('touchend', onEnd, { passive: true });
@@ -102,9 +109,12 @@ export default function App() {
   const goals = activeGoals(data);
   const off = goals.filter((g) => goalInfo(g, data, today).tone !== 'good').length;
 
+  const noteCount = data.notes.filter((n) => !n.deleted && n.text.trim()).length;
   const sub = tab === 'today'
     ? `${fmtLong(today)} · ${left} left · ${doneToday} done`
-    : goals.length ? `${goals.length - off} on track · ${off} need${off === 1 ? 's' : ''} attention` : 'No goals yet';
+    : tab === 'notes'
+      ? noteCount ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'No notes yet'
+      : goals.length ? `${goals.length - off} on track · ${off} need${off === 1 ? 's' : ''} attention` : 'No goals yet';
 
   return (
     <div className="app" ref={appRef} data-slide={slide ?? undefined}>
@@ -115,13 +125,21 @@ export default function App() {
             <button type="button" role="tab" aria-selected={tab === 'goals'} onClick={() => setTab('goals')}>
               Goals{off > 0 && <i className="dot" aria-label={`${off} need attention`} />}
             </button>
+            <button type="button" role="tab" aria-selected={tab === 'notes'} onClick={() => setTab('notes')}>Notes</button>
           </nav>
           <SyncButton status={sync} onClick={() => setSheet({ type: 'sync' })} />
         </div>
         <div className="sub">{loaded ? sub : ' '}</div>
       </header>
 
-      {tab === 'today'
+      {tab === 'notes' && (
+        <Notes
+          data={data}
+          onOpen={(id) => setSheet({ type: 'note', id, isNew: false })}
+          onNew={() => setSheet({ type: 'note', id: addNote().id, isNew: true })}
+        />
+      )}
+      {tab === 'notes' ? null : tab === 'today'
         ? <Today data={data} today={today} onOpenTask={(id) => setSheet({ type: 'task', id })} onHistory={() => setSheet({ type: 'history' })} toast={showToast} />
         : <Goals data={data} today={today} onOpenGoal={(id) => setSheet({ type: 'goal', id })} onNew={() => setSheet({ type: 'new' })} onYear={() => setSheet({ type: 'year' })} />}
 
@@ -131,6 +149,7 @@ export default function App() {
       {sheet?.type === 'goal' && <GoalSheet id={sheet.id} data={data} today={today} onClose={close} toast={showToast} />}
       {sheet?.type === 'new' && <NewGoalSheet today={today} onClose={close} onCreated={() => { close(); setTab('goals'); }} />}
       {sheet?.type === 'year' && <YearSheet data={data} today={today} onClose={close} />}
+      {sheet?.type === 'note' && <NoteSheet key={sheet.id} id={sheet.id} isNew={sheet.isNew} data={data} onClose={close} toast={showToast} />}
       {sheet?.type === 'history' && <HistorySheet data={data} today={today} onClose={close} />}
       {sheet?.type === 'sync' && <SyncSheet status={sync} onClose={close} toast={showToast} />}
 
