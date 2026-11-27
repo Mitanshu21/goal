@@ -1,5 +1,14 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
+/*
+ * Back gesture / back button closes the open sheet instead of leaving the app.
+ * An open sheet adds one history entry; going back pops it and closes the sheet.
+ * Closing the sheet any other way removes that entry again.
+ */
+let openSheets = 0;
+let poppedByBack = false;
+const isSheetEntry = () => (history.state as { sheet?: boolean } | null)?.sheet === true;
+
 /**
  * Bottom sheet that slides up over the current page.
  * Closes on backdrop tap, Escape, or dragging it down.
@@ -14,6 +23,23 @@ export default function Sheet({ label, onClose, children }: { label: string; onC
     const k = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', k);
     return () => window.removeEventListener('keydown', k);
+  }, []);
+
+  useEffect(() => {
+    openSheets++;
+    poppedByBack = false;
+    // One entry for whatever sheet is open; swapping sheets reuses it.
+    if (!isSheetEntry()) history.pushState({ sheet: true }, '');
+    const onPop = () => { poppedByBack = true; closeRef.current(); };
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      openSheets--;
+      // Wait a tick: if another sheet opened in its place, keep the entry.
+      window.setTimeout(() => {
+        if (openSheets === 0 && !poppedByBack && isSheetEntry()) history.back();
+      }, 0);
+    };
   }, []);
 
   // Drag down to close. Starts only when the sheet is scrolled to the top and
